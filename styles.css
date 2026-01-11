@@ -24,6 +24,9 @@ body {
   font-family: var(--font);
   color: var(--text);
   background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  font-size: 16px;
+  /* Base pour meilleure lisibilité mobile */
+  line-height: 1.6;
 }
 
 .page {
@@ -129,7 +132,7 @@ body {
     width: 100%;
     text-align: left !important;
   }
-  
+
   .statBlock .statBig {
     justify-content: flex-start !important;
   }
@@ -177,6 +180,19 @@ body {
   padding: 18px;
   margin-bottom: 14px;
   border-left: 5px solid var(--primary);
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .qTitle {
@@ -208,10 +224,17 @@ body {
   font-weight: 900;
   cursor: pointer;
   transition: transform 0.05s ease, filter 0.2s ease, background 0.2s ease, border 0.2s ease;
+  min-height: 44px;
+  /* Zone tactile minimum recommandée */
 }
 
 .btn:active {
   transform: translateY(1px);
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .btnAnswer {
@@ -359,7 +382,7 @@ body {
   .actionsRow {
     flex-direction: column;
   }
-  
+
   .actionsRow .btn {
     width: 100%;
   }
@@ -404,6 +427,12 @@ body {
 
 .infoBox a:hover {
   text-decoration: underline;
+}
+
+.infoBox a:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .startScreen {
@@ -494,7 +523,7 @@ body {
   .modalActions {
     flex-direction: column;
   }
-  
+
   .modalActions button {
     width: 100%;
   }
@@ -631,18 +660,27 @@ body {
   gap: 8px;
   color: white;
   transition: transform 0.2s ease, opacity 0.2s ease;
+  min-height: 44px;
+  /* Zone tactile minimum */
 }
 
 @media (max-width: 640px) {
   .socialBtn {
     flex: 1 1 auto;
     width: 100%;
+    padding: 14px 20px;
+    /* Plus de padding sur mobile */
   }
 }
 
 .socialBtn:hover {
   transform: translateY(-2px);
   opacity: 0.9;
+}
+
+.socialBtn:focus-visible {
+  outline: 3px solid white;
+  outline-offset: 2px;
 }
 
 .socialBtn.facebook {
