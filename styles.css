@@ -45,17 +45,29 @@ body {
 
 .header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
+  padding: 24px 16px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border-radius: var(--radius-md);
+  border: 2px solid rgba(102, 126, 234, 0.15);
 }
 
 .title {
-  font-size: 2rem;
-  margin: 0 0 8px;
+  font-size: 2.2rem;
+  margin: 0 0 12px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
 }
 
 .subtitle {
   margin: 0;
-  color: var(--muted);
+  color: #4a5568;
+  font-size: 1.1rem;
+  line-height: 1.6;
 }
 
 .stats {
@@ -494,10 +506,16 @@ body {
 
 .socialBtn.facebook {
   background: #1877f2;
+  color: #f5f1e8;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .socialBtn.instagram {
   background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: #f5f1e8;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .socialIcon {
