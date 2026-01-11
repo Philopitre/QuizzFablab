@@ -39,19 +39,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const TOTAL_QUESTIONS = allQuestionsRaw.length;
   const MAX_GAMES = Math.ceil(TOTAL_QUESTIONS / QUESTIONS_PER_GAME);
-
-  /** @type {{
-   * currentQuestions: Array<{question:string, correct:boolean, explanation:string, originalIndex:number}>,
-   * usedQuestionIndices: number[],
-   * userAnswers: Array<boolean|undefined>,
-   * totalScore: number,
-   * totalAnswered: number,
-   * gamesPlayed: number,
-   * showResults: boolean,
-   * gameHistory: Array<{gameNumber:number, score:number, total:number, percentage:number}>,
-   * storageConsent: boolean|null,
-   * showConsentModal: boolean
-   * }} */
   let state = {
     currentQuestions: [],
     usedQuestionIndices: [],
@@ -490,7 +477,7 @@ document.addEventListener("DOMContentLoaded", () => {
     credits.className = "infoBox";
     credits.innerHTML = `
       <h3>🎥 Vidéos sur les fablabs</h3>
-      <p>Ce quiz s'inspire de contenus pédagogiques disponibles sur la chaîne <a href="https://tube.oisux.org/c/agrilab_channel/videos" target="_blank" rel="noopener noreferrer">Agrilab Channel</a> (CC BY-NC-SA 4.0).</p>
+      <p>Ce quiz s'inspire de contenus pédagogiques disponibles sur la chaîne <a href=https://tube.oisux.org/c/agrilab_channel/videos" target="_blank" rel="noopener noreferrer">Agrilab Channel</a> (CC BY-NC-SA 4.0).</p>
       <p>Créé par <strong>Luc Hanneuse</strong>. Vous pouvez réutiliser ce contenu à but non commercial, en citant l'auteur et en respectant les mêmes conditions de licence.</p>
     `;
     container.appendChild(credits);
