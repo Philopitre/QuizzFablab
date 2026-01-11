@@ -1,14 +1,12 @@
 // @ts-check
 document.addEventListener("DOMContentLoaded", () => {
-  const STORAGE_KEY = "fablab-quiz-state";
   const QUESTIONS_PER_GAME = 5;
 
-  const $consentRoot = document.getElementById("consent-root");
   const $statsRoot = document.getElementById("stats-root");
   const $contentRoot = document.getElementById("content-root");
 
-  if (!$consentRoot || !$statsRoot || !$contentRoot) {
-    alert("Erreur : éléments HTML manquants (consent-root / stats-root / content-root).");
+  if (!$statsRoot || !$contentRoot) {
+    alert("Erreur : éléments HTML manquants (stats-root / content-root).");
     return;
   }
 
@@ -47,74 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
     totalAnswered: 0,
     gamesPlayed: 0,
     showResults: false,
-    gameHistory: [],
-    storageConsent: false,
-    showConsentModal: false
+    gameHistory: []
   };
-
-  /** @type {any|null} */
-  let pendingSaved = null;
-
-  function safeParse(raw) { try { return JSON.parse(raw); } catch { return null; } }
-
-  async function loadState() {
-    try {
-      const result = await window.storage.get(STORAGE_KEY);
-      if (!result || !result.value) {
-        // Rien à restaurer : on joue sans sauvegarde par défaut (pas de pop-up au démarrage)
-        state.storageConsent = false;
-        state.showConsentModal = false;
-        pendingSaved = null;
-        render();
-        return;
-      }
-
-      const saved = safeParse(result.value);
-      const hasProgress = !!(saved && (
-        (Array.isArray(saved.usedQuestionIndices) && saved.usedQuestionIndices.length > 0) ||
-        (typeof saved.gamesPlayed === "number" && saved.gamesPlayed > 0) ||
-        (Array.isArray(saved.gameHistory) && saved.gameHistory.length > 0) ||
-        (typeof saved.totalAnswered === "number" && saved.totalAnswered > 0)
-      ));
-
-      if (!hasProgress) {
-        // Sauvegarde vide / corrompue : on ignore
-        state.storageConsent = false;
-        state.showConsentModal = false;
-        pendingSaved = null;
-        render();
-        return;
-      }
-
-      // Il existe une progression : on propose de la reprendre (et seulement dans ce cas)
-      pendingSaved = saved;
-      state.showConsentModal = true;
-      render();
-    } catch (error) {
-      // Stockage indisponible : on continue sans pop-up ni sauvegarde
-      state.storageConsent = false;
-      state.showConsentModal = false;
-      pendingSaved = null;
-      render();
-    }
-  }
-
-  async function saveState() {
-    if (state.storageConsent !== true) return;
-    const toSave = {
-      usedQuestionIndices: state.usedQuestionIndices,
-      totalScore: state.totalScore,
-      totalAnswered: state.totalAnswered,
-      gamesPlayed: state.gamesPlayed,
-      gameHistory: state.gameHistory,
-      storageConsent: state.storageConsent
-    };
-    try {
-      await window.storage.set(STORAGE_KEY, JSON.stringify(toSave));
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-    }
-  }
 
   function shuffle(arr) {
     const a = arr.slice();
@@ -131,46 +63,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function computeGlobalProgress() {
     return (state.usedQuestionIndices.length / TOTAL_QUESTIONS) * 100;
-  }
-
-  function handleRestore(resume) {
-    state.showConsentModal = false;
-
-    if (resume) {
-      state = {
-        ...state,
-        ...pendingSaved,
-        currentQuestions: [],
-        userAnswers: [],
-        showResults: false,
-        // Si une sauvegarde existe, on considère que l'utilisateur accepte la sauvegarde
-        storageConsent: true
-      };
-    } else {
-      // On supprime la sauvegarde et on repart proprement
-      window.storage.delete(STORAGE_KEY).catch(() => {});
-      state = {
-        currentQuestions: [],
-        usedQuestionIndices: [],
-        userAnswers: [],
-        totalScore: 0,
-        totalAnswered: 0,
-        gamesPlayed: 0,
-        showResults: false,
-        gameHistory: [],
-        storageConsent: false,
-        showConsentModal: false
-      };
-    }
-
-    pendingSaved = null;
-    render();
-  }
-
-  function enableSaving() {
-    state.storageConsent = true;
-    saveState();
-    render();
   }
 
   function startNewGame() {
@@ -225,7 +117,6 @@ document.addEventListener("DOMContentLoaded", () => {
     state.gamesPlayed += 1;
     state.showResults = true;
 
-    saveState();
     render();
 
     // Scroll vers le haut de la page
@@ -236,12 +127,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const ok = window.confirm("Voulez-vous vraiment réinitialiser toute votre progression ?");
     if (!ok) return;
 
-    try {
-      await window.storage.delete(STORAGE_KEY);
-    } catch (error) {
-      console.log('Rien à supprimer');
-    }
-
     state = {
       currentQuestions: [],
       usedQuestionIndices: [],
@@ -250,42 +135,11 @@ document.addEventListener("DOMContentLoaded", () => {
       totalAnswered: 0,
       gamesPlayed: 0,
       showResults: false,
-      gameHistory: [],
-      storageConsent: false,
-      showConsentModal: false
+      gameHistory: []
     };
 
     render();
     startNewGame();
-  }
-
-  function renderConsentModal() {
-    $consentRoot.innerHTML = "";
-    if (!state.showConsentModal || !pendingSaved) return;
-
-    const overlay = document.createElement("div");
-    overlay.className = "modalOverlay";
-
-    const card = document.createElement("div");
-    card.className = "modalCard";
-    const answered = typeof pendingSaved.totalAnswered === "number" ? pendingSaved.totalAnswered : 0;
-    const played = typeof pendingSaved.gamesPlayed === "number" ? pendingSaved.gamesPlayed : 0;
-
-    card.innerHTML = `
-      <div class="modalIcon">💾</div>
-      <h2>Reprendre votre progression ?</h2>
-      <p>Nous avons trouvé une progression sauvegardée (${played} partie${played > 1 ? "s" : ""}, ${answered} réponse${answered > 1 ? "s" : ""}).</p>
-      <div class="modalActions">
-        <button class="btnLight" id="btn-restore-reset">Repartir à zéro</button>
-        <button class="btnSave" id="btn-restore-yes">Reprendre</button>
-      </div>
-    `;
-
-    overlay.appendChild(card);
-    $consentRoot.appendChild(overlay);
-
-    document.getElementById("btn-restore-reset").onclick = () => handleRestore(false);
-    document.getElementById("btn-restore-yes").onclick = () => handleRestore(true);
   }
 
   function renderStats() {
@@ -309,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>
 
-      <div class="progressTrack">
+      <div class="progressTrack" role="progressbar" aria-valuenow="${Math.round(progress)}" aria-valuemin="0" aria-valuemax="100" aria-label="Progression globale du quiz">
         <div class="progressBar" style="width:${progress}%;"></div>
       </div>
     `;
@@ -355,6 +209,10 @@ document.addEventListener("DOMContentLoaded", () => {
     submit.className = "btn btnPrimary";
     submit.textContent = "Valider mes réponses";
     submit.disabled = !allAnswered();
+    submit.setAttribute('aria-label', `Valider mes ${state.currentQuestions.length} réponses`);
+    if (!allAnswered()) {
+      submit.setAttribute('aria-disabled', 'true');
+    }
     submit.onclick = () => submitAnswers();
     container.appendChild(submit);
 
@@ -450,7 +308,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (canPlayMore && !isComplete) {
       const replay = document.createElement("button");
       replay.className = "btn btnGreen";
-      replay.textContent = "🔁 Rejouer (5 nouvelles questions)";
+      replay.textContent = "🔄 Rejouer (5 nouvelles questions)";
       replay.onclick = () => startNewGame();
       actions.appendChild(replay);
     }
@@ -477,7 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
     credits.className = "infoBox";
     credits.innerHTML = `
       <h3>🎥 Vidéos sur les fablabs</h3>
-      <p>Ce quiz s'inspire de contenus pédagogiques disponibles sur la chaîne <a href=https://tube.oisux.org/c/agrilab_channel/videos" target="_blank" rel="noopener noreferrer">Agrilab Channel</a> (CC BY-NC-SA 4.0).</p>
+      <p>Ce quiz s'inspire de contenus pédagogiques disponibles sur la chaîne <a href="https://tube.oisux.org/c/agrilab_channel/videos" target="_blank" rel="noopener noreferrer">Agrilab Channel</a> (CC BY-NC-SA 4.0).</p>
       <p>Créé par <strong>Luc Hanneuse</strong>. Vous pouvez réutiliser ce contenu à but non commercial, en citant l'auteur et en respectant les mêmes conditions de licence.</p>
     `;
     container.appendChild(credits);
@@ -566,7 +424,6 @@ ${url}`);
   }
 
   function render() {
-    renderConsentModal();
     renderStats();
     $contentRoot.innerHTML = "";
 
@@ -580,11 +437,9 @@ ${url}`);
       return;
     }
 
-    if (state.currentQuestions.length === 0 && !state.showConsentModal) {
-      renderStartScreen();
-    }
+    renderStartScreen();
   }
 
   // Boot
-  loadState();
+  render();
 });
