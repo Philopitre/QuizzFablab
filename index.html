@@ -4,29 +4,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="Quiz interactif pour découvrir les fablabs et le Fab-C de Charleroi. Testez vos connaissances avec 20 questions sur la fabrication numérique." />
+  <meta name="keywords" content="fablab, quiz, Charleroi, Fab-C, fabrication numérique, maker" />
   <title>Vrai ou Faux – Découvrez les Fab-Labs</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 
 <body>
-  <!-- Modal consentement (injectée en JS) -->
-  <div id="consent-root"></div>
-
   <main class="page">
-    <section class="card">
+    <article class="card">
       <header class="header">
         <h1 class="title">🔍 Vrai ou Faux – Découvrez les Fab-Labs</h1>
         <p class="subtitle">
-          Quiz pour démystifier les fablabs — en particulier le <strong><a href="https://fablab-charleroi.be/" target="_blank" rel="noopener noreferrer">Fab-C de Charleroi</a></strong> !
+          Quiz pour démystifier les fablabs — en particulier le <strong><a href="https://fablab-charleroi.be/"
+              target="_blank" rel="noopener noreferrer">Fab-C de Charleroi</a></strong> !
         </p>
       </header>
 
       <!-- Stats globales -->
-      <section id="stats-root"></section>
+      <section id="stats-root" aria-live="polite"></section>
 
       <!-- Zone principale (start / questions / résultats) -->
-      <section id="content-root"></section>
-    </section>
+      <section id="content-root" role="region" aria-label="Contenu du quiz"></section>
+    </article>
   </main>
 
   <script src="./app.js"></script>
