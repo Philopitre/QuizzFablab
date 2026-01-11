@@ -14,16 +14,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 20 questions + explications
   const allQuestionsRaw = [
-    { question: "Des makers utilisent les fablabs pour créer des prothèses ou aides techniques.", correct: true,  explanation: "Oui. Beaucoup de fablabs soutiennent des projets d'assistance (prothèses, adaptations, aides techniques) via l'impression 3D et l'électronique." },
-    { question: "Des fablabs organisent des ateliers intergénérationnels.", correct: true,  explanation: "Oui. Ateliers enfants/parents, seniors, débutants : le fablab est souvent un lieu de transmission entre publics." },
-    { question: "Des enfants apprennent à coder ou modéliser en fablab.", correct: true,  explanation: "Oui. Scratch, Arduino, modélisation 3D… les fablabs proposent souvent des initiations adaptées." },
-    { question: "Certains fablabs sont accessibles aux personnes en situation de handicap.", correct: true,  explanation: "Oui. Certains lieux adaptent l'accueil et les postes de travail, ou mènent des projets inclusifs avec des partenaires." },
-    { question: "Il existe des fablabs dans des bibliothèques, des écoles et des centres sociaux.", correct: true,  explanation: "Oui. Les fablabs peuvent être intégrés à des structures publiques/associatives : écoles, médiathèques, maisons de quartier." },
-    { question: "Des fablabs ont été créés à l'initiative de citoyens.", correct: true,  explanation: "Oui. Beaucoup naissent de collectifs locaux qui veulent mutualiser outils, savoir-faire et projets." },
-    { question: "Des fablabs participent à des projets de recherche scientifique.", correct: true,  explanation: "Oui. Prototypage rapide, instrumentation, tests : certains fablabs collaborent avec universités, écoles, labs." },
-    { question: "Des fablabs organisent des hackathons citoyens.", correct: true,  explanation: "Oui. Il arrive qu'ils animent des événements de co-création (solutions locales, écologie, mobilité, inclusion)." },
-    { question: "Certains fablabs ont des règles de sécurité strictes.", correct: true,  explanation: "Oui. Machines + outils = procédures : formation, EPI, encadrement, zones dédiées, etc." },
-    { question: "Des fablabs utilisent des logiciels libres pour la modélisation.", correct: true,  explanation: "Oui. On peut y utiliser Blender, FreeCAD, Inkscape, etc. (même si certains utilisent aussi des logiciels propriétaires)." },
+    { question: "Des makers utilisent les fablabs pour créer des prothèses ou aides techniques.", correct: true, explanation: "Oui. Beaucoup de fablabs soutiennent des projets d'assistance (prothèses, adaptations, aides techniques) via l'impression 3D et l'électronique." },
+    { question: "Des fablabs organisent des ateliers intergénérationnels.", correct: true, explanation: "Oui. Ateliers enfants/parents, seniors, débutants : le fablab est souvent un lieu de transmission entre publics." },
+    { question: "Des enfants apprennent à coder ou modéliser en fablab.", correct: true, explanation: "Oui. Scratch, Arduino, modélisation 3D… les fablabs proposent souvent des initiations adaptées." },
+    { question: "Certains fablabs sont accessibles aux personnes en situation de handicap.", correct: true, explanation: "Oui. Certains lieux adaptent l'accueil et les postes de travail, ou mènent des projets inclusifs avec des partenaires." },
+    { question: "Il existe des fablabs dans des bibliothèques, des écoles et des centres sociaux.", correct: true, explanation: "Oui. Les fablabs peuvent être intégrés à des structures publiques/associatives : écoles, médiathèques, maisons de quartier." },
+    { question: "Des fablabs ont été créés à l'initiative de citoyens.", correct: true, explanation: "Oui. Beaucoup naissent de collectifs locaux qui veulent mutualiser outils, savoir-faire et projets." },
+    { question: "Des fablabs participent à des projets de recherche scientifique.", correct: true, explanation: "Oui. Prototypage rapide, instrumentation, tests : certains fablabs collaborent avec universités, écoles, labs." },
+    { question: "Des fablabs organisent des hackathons citoyens.", correct: true, explanation: "Oui. Il arrive qu'ils animent des événements de co-création (solutions locales, écologie, mobilité, inclusion)." },
+    { question: "Certains fablabs ont des règles de sécurité strictes.", correct: true, explanation: "Oui. Machines + outils = procédures : formation, EPI, encadrement, zones dédiées, etc." },
+    { question: "Des fablabs utilisent des logiciels libres pour la modélisation.", correct: true, explanation: "Oui. On peut y utiliser Blender, FreeCAD, Inkscape, etc. (même si certains utilisent aussi des logiciels propriétaires)." },
 
     { question: "Tous les fablabs sont ouverts 24h/24 et 7j/7.", correct: false, explanation: "Non. Les horaires dépendent du lieu, de l'équipe, des bénévoles, et des contraintes de sécurité." },
     { question: "On peut utiliser toutes les machines sans aucune formation.", correct: false, explanation: "Non. La plupart des machines nécessitent une initiation (sécurité + bonnes pratiques) avant usage autonome." },
@@ -61,9 +61,12 @@ document.addEventListener("DOMContentLoaded", () => {
     gamesPlayed: 0,
     showResults: false,
     gameHistory: [],
-    storageConsent: null,
+    storageConsent: false,
     showConsentModal: false
   };
+
+  /** @type {any|null} */
+  let pendingSaved = null;
 
   function safeParse(raw) { try { return JSON.parse(raw); } catch { return null; } }
 
@@ -71,27 +74,40 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const result = await window.storage.get(STORAGE_KEY);
       if (!result || !result.value) {
-        state.showConsentModal = true;
+        // Rien à restaurer : on joue sans sauvegarde par défaut (pas de pop-up au démarrage)
+        state.storageConsent = false;
+        state.showConsentModal = false;
+        pendingSaved = null;
         render();
         return;
       }
+
       const saved = safeParse(result.value);
-      if (!saved) {
-        state.showConsentModal = true;
+      const hasProgress = !!(saved && (
+        (Array.isArray(saved.usedQuestionIndices) && saved.usedQuestionIndices.length > 0) ||
+        (typeof saved.gamesPlayed === "number" && saved.gamesPlayed > 0) ||
+        (Array.isArray(saved.gameHistory) && saved.gameHistory.length > 0) ||
+        (typeof saved.totalAnswered === "number" && saved.totalAnswered > 0)
+      ));
+
+      if (!hasProgress) {
+        // Sauvegarde vide / corrompue : on ignore
+        state.storageConsent = false;
+        state.showConsentModal = false;
+        pendingSaved = null;
         render();
         return;
       }
-      state = {
-        ...state,
-        ...saved,
-        currentQuestions: [],
-        userAnswers: [],
-        showResults: false,
-        showConsentModal: false
-      };
+
+      // Il existe une progression : on propose de la reprendre (et seulement dans ce cas)
+      pendingSaved = saved;
+      state.showConsentModal = true;
       render();
     } catch (error) {
-      state.showConsentModal = true;
+      // Stockage indisponible : on continue sans pop-up ni sauvegarde
+      state.storageConsent = false;
+      state.showConsentModal = false;
+      pendingSaved = null;
       render();
     }
   }
@@ -130,11 +146,44 @@ document.addEventListener("DOMContentLoaded", () => {
     return (state.usedQuestionIndices.length / TOTAL_QUESTIONS) * 100;
   }
 
-  function handleConsent(consent) {
-    state.storageConsent = consent;
+  function handleRestore(resume) {
     state.showConsentModal = false;
-    if (consent) saveState();
-    startNewGame();
+
+    if (resume) {
+      state = {
+        ...state,
+        ...pendingSaved,
+        currentQuestions: [],
+        userAnswers: [],
+        showResults: false,
+        // Si une sauvegarde existe, on considère que l'utilisateur accepte la sauvegarde
+        storageConsent: true
+      };
+    } else {
+      // On supprime la sauvegarde et on repart proprement
+      window.storage.delete(STORAGE_KEY).catch(() => {});
+      state = {
+        currentQuestions: [],
+        usedQuestionIndices: [],
+        userAnswers: [],
+        totalScore: 0,
+        totalAnswered: 0,
+        gamesPlayed: 0,
+        showResults: false,
+        gameHistory: [],
+        storageConsent: false,
+        showConsentModal: false
+      };
+    }
+
+    pendingSaved = null;
+    render();
+  }
+
+  function enableSaving() {
+    state.storageConsent = true;
+    saveState();
+    render();
   }
 
   function startNewGame() {
@@ -191,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     saveState();
     render();
-    
+
     // Scroll vers le haut de la page
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -215,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
       gamesPlayed: 0,
       showResults: false,
       gameHistory: [],
-      storageConsent: true,
+      storageConsent: false,
       showConsentModal: false
     };
 
@@ -225,28 +274,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderConsentModal() {
     $consentRoot.innerHTML = "";
-    if (!state.showConsentModal) return;
+    if (!state.showConsentModal || !pendingSaved) return;
 
     const overlay = document.createElement("div");
     overlay.className = "modalOverlay";
 
     const card = document.createElement("div");
     card.className = "modalCard";
+    const answered = typeof pendingSaved.totalAnswered === "number" ? pendingSaved.totalAnswered : 0;
+    const played = typeof pendingSaved.gamesPlayed === "number" ? pendingSaved.gamesPlayed : 0;
+
     card.innerHTML = `
-      <div class="modalIcon">⚠️</div>
-      <h2>Sauvegarder votre progression ?</h2>
-      <p>Souhaitez-vous que nous sauvegardions votre score et votre progression pour vos prochaines visites ?</p>
+      <div class="modalIcon">💾</div>
+      <h2>Reprendre votre progression ?</h2>
+      <p>Nous avons trouvé une progression sauvegardée (${played} partie${played > 1 ? "s" : ""}, ${answered} réponse${answered > 1 ? "s" : ""}).</p>
       <div class="modalActions">
-        <button class="btnLight" id="btn-consent-no">Non merci</button>
-        <button class="btnSave" id="btn-consent-yes">Oui, sauvegarder</button>
+        <button class="btnLight" id="btn-restore-reset">Repartir à zéro</button>
+        <button class="btnSave" id="btn-restore-yes">Reprendre</button>
       </div>
     `;
 
     overlay.appendChild(card);
     $consentRoot.appendChild(overlay);
 
-    document.getElementById("btn-consent-no").onclick = () => handleConsent(false);
-    document.getElementById("btn-consent-yes").onclick = () => handleConsent(true);
+    document.getElementById("btn-restore-reset").onclick = () => handleRestore(false);
+    document.getElementById("btn-restore-yes").onclick = () => handleRestore(true);
   }
 
   function renderStats() {
@@ -286,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="emoji">🚀</div>
       <h2>${isFirst ? "Prêt à commencer ?" : "Bienvenue de retour !"}</h2>
       <p>${isFirst ? `Testez vos connaissances avec ${QUESTIONS_PER_GAME} questions !`
-                  : `Continuez votre progression (${state.usedQuestionIndices.length}/${TOTAL_QUESTIONS} questions)`}</p>
+        : `Continuez votre progression (${state.usedQuestionIndices.length}/${TOTAL_QUESTIONS} questions)`}</p>
       <button class="btn btnStart">${isFirst ? "🎯 Commencer le quiz" : "▶️ Continuer"}</button>
     `;
     wrap.querySelector("button").onclick = () => startNewGame();
@@ -347,12 +399,12 @@ document.addEventListener("DOMContentLoaded", () => {
       <h3>🧠 Correction complète</h3>
       <div class="correctionList">
         ${state.currentQuestions.map((q, i) => {
-          const user = state.userAnswers[i];
-          const isCorrect = user === q.correct;
-          const userLabel = user === true ? "Vrai" : "Faux";
-          const correctLabel = q.correct === true ? "Vrai" : "Faux";
+      const user = state.userAnswers[i];
+      const isCorrect = user === q.correct;
+      const userLabel = user === true ? "Vrai" : "Faux";
+      const correctLabel = q.correct === true ? "Vrai" : "Faux";
 
-          return `
+      return `
             <div class="correctionItem ${isCorrect ? "ok" : "ko"}">
               <div class="correctionTop">
                 <div class="correctionIcon">${isCorrect ? "✅" : "❌"}</div>
@@ -365,7 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="correctionExplain">${q.explanation || ""}</div>
             </div>
           `;
-        }).join("")}
+    }).join("")}
       </div>
     `;
     container.appendChild(correctionBox);
@@ -376,14 +428,14 @@ document.addEventListener("DOMContentLoaded", () => {
       <h3 class="historyTitle">📈 Historique des parties</h3>
       <div class="historyList">
         ${state.gameHistory.map(g => {
-          const color = g.percentage >= 80 ? "var(--success)" : "var(--danger)";
-          return `
+      const color = g.percentage >= 80 ? "var(--success)" : "var(--danger)";
+      return `
             <div class="historyItem">
               <b>Partie ${g.gameNumber}</b>
               <span class="historyScore" style="color:${color}">${g.score}/${g.total} (${g.percentage}%)</span>
             </div>
           `;
-        }).join("")}
+    }).join("")}
       </div>
     `;
     container.appendChild(histWrap);
@@ -466,32 +518,62 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     container.appendChild(social);
 
-    // Bouton partage Facebook
+    // Partage (Facebook + copie d'URL)
     const shareBox = document.createElement("div");
     shareBox.style.marginTop = "24px";
     shareBox.style.textAlign = "center";
-    
-    const shareBtn = document.createElement("button");
-    shareBtn.className = "btn btnPrimary";
-    shareBtn.style.display = "inline-flex";
-    shareBtn.style.alignItems = "center";
-    shareBtn.style.gap = "8px";
-    shareBtn.style.padding = "16px 32px";
-    shareBtn.style.fontSize = "1.1rem";
-    shareBtn.innerHTML = `
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-      </svg>
-      Partager ce quiz sur Facebook
-    `;
-    shareBtn.onclick = () => {
-      const url = encodeURIComponent(window.location.href);
-      const text = encodeURIComponent("🔍 Testez vos connaissances sur les Fab-Labs avec ce quiz interactif !");
-      window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank', 'width=600,height=400');
+
+    const shareRow = document.createElement("div");
+    shareRow.style.display = "flex";
+    shareRow.style.justifyContent = "center";
+    shareRow.style.gap = "12px";
+    shareRow.style.flexWrap = "wrap";
+
+    function getShareUrl() {
+      // On partage l'URL propre (sans fragments)
+      return window.location.href.split("#")[0];
+    }
+
+    function copyLinkFeedback(btn) {
+      const url = getShareUrl();
+      navigator.clipboard.writeText(url).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = "✅ Lien copié";
+        btn.style.background = "var(--success)";
+        setTimeout(() => {
+          btn.innerHTML = original;
+          btn.style.background = "var(--primary)";
+        }, 1800);
+      }).catch(() => {
+        alert(`Copiez ce lien pour partager le quiz :
+
+${url}`);
+      });
+    }
+
+    const fbBtn = document.createElement("button");
+    fbBtn.className = "btn btnPrimary";
+    fbBtn.style.width = "min(320px, 100%)";
+    fbBtn.innerHTML = "📣 Partager sur Facebook";
+    fbBtn.onclick = () => {
+      const url = getShareUrl();
+      const fbShare = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+      const win = window.open(fbShare, "_blank", "noopener,noreferrer,width=600,height=500");
+      // Si pop-up bloquée, on retombe sur la copie
+      if (!win) copyLinkFeedback(copyBtn);
     };
-    
-    shareBox.appendChild(shareBtn);
-    container.appendChild(shareBox);
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "btn btnPrimary";
+    copyBtn.style.width = "min(320px, 100%)";
+    copyBtn.innerHTML = "🔗 Copier le lien du quiz";
+    copyBtn.onclick = () => copyLinkFeedback(copyBtn);
+
+    shareRow.appendChild(fbBtn);
+    shareRow.appendChild(copyBtn);
+    shareBox.appendChild(shareRow);
+
+    $contentRoot.appendChild(shareBox);
 
     $contentRoot.appendChild(container);
   }
