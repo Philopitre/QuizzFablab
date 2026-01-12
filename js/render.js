@@ -2,7 +2,7 @@
 import { QUESTIONS } from "./questions.js";
 import { shuffle, allAnswered } from "./utils.js";
 import { saveStateSilently, clearSavedState, createInitialState } from "./state.js";
-import { copyLinkFeedback, shareOnFacebookOrFallback } from "./share.js";
+import { shareOnFacebook, copyLinkFeedback } from "./share.js";
 
 export function createRenderer({
   QUESTIONS_PER_GAME,
@@ -17,58 +17,60 @@ export function createRenderer({
     return (state.usedQuestionIndices.length / TOTAL_QUESTIONS) * 100;
   }
 
+  function scrollTopSmoothRobust() {
+    // Empêche le navigateur de re-scroller sur le bouton cliqué (focus)
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
+
+    // Après stabilisation du DOM (souvent 2 frames)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const opts = { top: 0, left: 0, behavior: "smooth" };
+        try { document.documentElement.scrollTo(opts); } catch {}
+        try { document.body.scrollTo(opts); } catch {}
+        try { window.scrollTo(opts); } catch {}
+      });
+    });
+  }
+
   function startNewGame() {
-  const state = getState();
+    const state = getState();
 
-  const available = Array.from({ length: TOTAL_QUESTIONS }, (_, i) => i)
-    .filter(i => !state.usedQuestionIndices.includes(i));
+    const available = Array.from({ length: TOTAL_QUESTIONS }, (_, i) => i)
+      .filter(i => !state.usedQuestionIndices.includes(i));
 
-  if (available.length === 0) {
-    const next = { ...state, currentQuestions: [], userAnswers: [], showResults: true };
+    // plus de questions disponibles -> on affiche les résultats (complet)
+    if (available.length === 0) {
+      const next = { ...state, currentQuestions: [], userAnswers: [], showResults: true };
+      setState(next);
+      saveStateSilently(next);
+      render();
+      scrollTopSmoothRobust();
+      return;
+    }
+
+    const picked = shuffle(available).slice(0, Math.min(QUESTIONS_PER_GAME, available.length));
+
+    const currentQuestions = picked.map(i => ({
+      question: QUESTIONS[i].question,
+      correct: QUESTIONS[i].correct,
+      explanation: QUESTIONS[i].explanation,
+      originalIndex: i
+    }));
+
+    const next = {
+      ...state,
+      currentQuestions,
+      userAnswers: new Array(currentQuestions.length).fill(undefined),
+      showResults: false
+    };
+
     setState(next);
     saveStateSilently(next);
     render();
-    return;
+    scrollTopSmoothRobust();
   }
-
-  const picked = shuffle(available).slice(0, Math.min(QUESTIONS_PER_GAME, available.length));
-  const currentQuestions = picked.map(i => ({
-    question: QUESTIONS[i].question,
-    correct: QUESTIONS[i].correct,
-    explanation: QUESTIONS[i].explanation,
-    originalIndex: i
-  }));
-
-  const next = {
-    ...state,
-    currentQuestions,
-    userAnswers: new Array(currentQuestions.length).fill(undefined),
-    showResults: false
-  };
-
-  setState(next);
-  saveStateSilently(next);
-  render();
-
- // Empêche le navigateur de re-scroller sur le bouton "Rejouer" (focus)
-if (document.activeElement && typeof document.activeElement.blur === "function") {
-  document.activeElement.blur();
-}
-
-// Scroll en haut après que le DOM soit réellement stabilisé (2 frames)
-requestAnimationFrame(() => {
-  requestAnimationFrame(() => {
-    const opts = { top: 0, left: 0, behavior: "smooth" };
-
-    // Certains navigateurs scrollent sur documentElement, d'autres sur body
-    document.documentElement.scrollTo(opts);
-    document.body.scrollTo(opts);
-
-    // Et on assure le coup (fallback)
-    window.scrollTo(opts);
-  });
-});
-}
 
   function handleAnswer(questionIdx, answer) {
     const state = getState();
@@ -116,7 +118,9 @@ requestAnimationFrame(() => {
     setState(next);
     saveStateSilently(next);
     render();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Ici le scroll marche déjà bien, mais on garde robuste
+    scrollTopSmoothRobust();
   }
 
   function resetAll() {
@@ -127,6 +131,7 @@ requestAnimationFrame(() => {
     setState(next);
     clearSavedState();
     render();
+    scrollTopSmoothRobust();
   }
 
   function renderStats() {
@@ -183,10 +188,12 @@ requestAnimationFrame(() => {
     wrap.querySelector("button").onclick = () => {
       if (!hasProgress) return startNewGame();
       if (canContinue) return startNewGame();
+
       const next = { ...state, showResults: true };
       setState(next);
       saveStateSilently(next);
       render();
+      scrollTopSmoothRobust();
     };
 
     if (hasProgress) {
@@ -209,6 +216,7 @@ requestAnimationFrame(() => {
 
     state.currentQuestions.forEach((q, idx) => {
       const selected = state.userAnswers[idx];
+
       const card = document.createElement("div");
       card.className = "questionCard";
       card.innerHTML = `
@@ -246,7 +254,7 @@ requestAnimationFrame(() => {
     shareBox.className = "shareBox";
     shareBox.innerHTML = `
       <h3 style="margin:0 0 4px;">📣 Partager le quiz</h3>
-      <p style="margin:0; color:#4a5568;">Si tu veux le transmettre, voici les boutons.</p>
+      <p style="margin:0; color:#4a5568;">Partage Facebook ou copie du lien.</p>
     `;
 
     const shareRow = document.createElement("div");
@@ -260,8 +268,9 @@ requestAnimationFrame(() => {
     copyBtn.className = "btn btnPrimary shareBtn";
     copyBtn.innerHTML = "🔗 Copier le lien du quiz";
 
+    // ✅ Facebook only + fallback copie si pop-up bloquée
+    fbBtn.onclick = () => shareOnFacebook(copyBtn);
     copyBtn.onclick = () => copyLinkFeedback(copyBtn);
-    fbBtn.onclick = () => shareOnFacebookOrFallback(copyBtn);
 
     shareRow.appendChild(fbBtn);
     shareRow.appendChild(copyBtn);
@@ -282,10 +291,10 @@ requestAnimationFrame(() => {
     banner.style.background = good ? "var(--success)" : "var(--danger)";
     banner.textContent = last
       ? `${good ? "🎉" : "💪"} Partie ${state.gamesPlayed} : ${last.score} / ${last.total} (${last.percentage}%)`
-      : `📌 Résultats`;
+      : "📌 Résultats";
     container.appendChild(banner);
 
-    // ✅ Partage (après bannière)
+    // Partage
     renderShareBox(container);
 
     // Correction complète
