@@ -1,8 +1,16 @@
 // share.js
+// Partage EXCLUSIF sur Facebook + fallback copie du lien
+
+/**
+ * URL propre du quiz (sans hash)
+ */
 export function getShareUrl() {
   return window.location.href.split("#")[0];
 }
 
+/**
+ * Copie du lien avec feedback visuel
+ */
 export function copyLinkFeedback(btn) {
   const url = getShareUrl();
 
@@ -11,6 +19,7 @@ export function copyLinkFeedback(btn) {
       const original = btn.innerHTML;
       btn.innerHTML = "✅ Lien copié";
       btn.style.background = "var(--success)";
+
       setTimeout(() => {
         btn.innerHTML = original;
         btn.style.background = "var(--primary)";
@@ -23,27 +32,25 @@ export function copyLinkFeedback(btn) {
   }
 }
 
-export async function shareOnFacebookOrFallback(copyBtn) {
+/**
+ * Partage Facebook uniquement
+ * Si la pop-up est bloquée → copie du lien
+ */
+export function shareOnFacebook(copyBtn) {
   const url = getShareUrl();
+  const fbShareUrl =
+    "https://www.facebook.com/sharer/sharer.php?u=" +
+    encodeURIComponent(url);
 
-  // 1) Web Share API (mobile)
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: "Quiz FabLabs",
-        text: "Vrai ou Faux : découvrez les FabLabs !",
-        url
-      });
-      return;
-    } catch {
-      // annulé/refusé -> on continue
-    }
+  // IMPORTANT : doit être déclenché directement sur un clic utilisateur
+  const win = window.open(
+    fbShareUrl,
+    "_blank",
+    "noopener,noreferrer,width=600,height=520"
+  );
+
+  // Pop-up bloquée → fallback copie
+  if (!win) {
+    copyLinkFeedback(copyBtn);
   }
-
-  // 2) Facebook sharer
-  const fbShare = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-  const win = window.open(fbShare, "_blank", "noopener,noreferrer,width=600,height=520");
-
-  // 3) Pop-up bloquée -> fallback copie
-  if (!win) copyLinkFeedback(copyBtn);
 }
